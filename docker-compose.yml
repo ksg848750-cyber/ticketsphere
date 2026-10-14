@@ -1,0 +1,85 @@
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args: { SERVICE_DIR: gateway }
+    ports: ["8080:8000"]
+    environment:
+      EVENTS_URL: http://events:8000
+      INVENTORY_URL: http://inventory:8000
+      BOOKING_URL: http://booking:8000
+      PAYMENTS_URL: http://payments:8000
+    depends_on:
+      events: { condition: service_healthy }
+      inventory: { condition: service_healthy }
+      booking: { condition: service_healthy }
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+  events:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args: { SERVICE_DIR: events }
+    expose: ["8000"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+  inventory:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args: { SERVICE_DIR: inventory }
+    expose: ["8000"]
+    environment: { DB_PATH: /data/inventory.db }
+    volumes: ["inventory_data:/data"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+  booking:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args: { SERVICE_DIR: booking }
+    expose: ["8000"]
+    environment:
+      EVENTS_URL: http://events:8000
+      INVENTORY_URL: http://inventory:8000
+      PAYMENTS_URL: http://payments:8000
+      DB_PATH: /data/bookings.db
+    volumes: ["booking_data:/data"]
+    depends_on:
+      events: { condition: service_healthy }
+      inventory: { condition: service_healthy }
+      payments: { condition: service_healthy }
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+  payments:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args: { SERVICE_DIR: payments }
+    expose: ["8000"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+volumes:
+  inventory_data:
+  booking_data:
